@@ -260,8 +260,8 @@ function encodeTGA(data, width, height) {
   view.setUint8(offset, 24);
   offset++; 
   
-  // Image Descriptor
-  view.setUint8(offset, 0); 
+  // Image Descriptor (vh flip bits)
+  view.setUint8(offset, 0b00100000); 
   offset++; 
 
   for (let y = 0; y < height; y++) {
