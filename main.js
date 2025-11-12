@@ -31,12 +31,13 @@ class Input {
 }
 
 class CubeFace {
-  constructor(faceName) {
+  constructor(faceName, name) {
     this.faceName = faceName;
+    this.name = name;
 
     this.anchor = document.createElement('a');
     this.anchor.style.position='absolute';
-    this.anchor.title = faceName;
+    this.anchor.title = name;
 
     this.img = document.createElement('img');
     this.img.style.filter = 'blur(4px)';
@@ -52,7 +53,7 @@ class CubeFace {
 
   setDownload(url, fileExtension) {
     this.anchor.href = url;
-    this.anchor.download = `${this.faceName}.${fileExtension}`;
+    this.anchor.download = `${this.name}.${fileExtension}`;
     this.img.style.filter = '';
   }
 }
@@ -92,12 +93,12 @@ const settings = {
 };
 
 const facePositions = {
-  pz: {x: 1, y: 1},
-  nz: {x: 3, y: 1},
-  px: {x: 2, y: 1},
-  nx: {x: 0, y: 1},
-  py: {x: 1, y: 0},
-  ny: {x: 1, y: 2}
+  pz: {x: 1, y: 1, name: 'Front'},
+  nz: {x: 3, y: 1, name: 'Back'},
+  px: {x: 2, y: 1, name: 'Right'},
+  nx: {x: 0, y: 1, name: 'Left'},
+  py: {x: 1, y: 0, name: 'Top'},
+  ny: {x: 1, y: 2, name: 'Bottom'}
 };
 
 function loadImage() {
@@ -134,12 +135,12 @@ function processImage(data) {
   }
 
   for (let [faceName, position] of Object.entries(facePositions)) {
-    renderFace(data, faceName, position);
+    renderFace(data, faceName, position, position.name);
   }
 }
 
-function renderFace(data, faceName, position) {
-  const face = new CubeFace(faceName);
+function renderFace(data, faceName, position, name) {
+  const face = new CubeFace(faceName, name);
   dom.faces.appendChild(face.anchor);
 
   const options = {
