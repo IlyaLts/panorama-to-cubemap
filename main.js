@@ -90,15 +90,25 @@ function getDataURL(imgData, extension) {
 const dom = {
   imageInput: document.getElementById('imageInput'),
   faces: document.getElementById('faces'),
-  generating: document.getElementById('generating')
+  generating: document.getElementById('generating'),
+  save: document.getElementById('save'),
+  saveInfo: document.getElementById('save-info'),
 };
 
-dom.imageInput.addEventListener('change', loadImage);
+function saveImages() {
+  for (const child of dom.faces.children) {
+    child.click();
+  };
+};
 
+dom.save.addEventListener('click', saveImages);
+dom.imageInput.addEventListener('change', loadImage);
+  
 const settings = {
   cubeRotation: new Input('cubeRotation', loadImage),
   interpolation: new RadioInput('interpolation', loadImage),
   format: new RadioInput('format', loadImage),
+  size: new RadioInput('size', loadImage),
 };
 
 const facePositions = {
@@ -138,6 +148,7 @@ let workers = [];
 function processImage(data) {
   removeChildren(dom.faces);
   dom.generating.style.visibility = 'visible';
+  dom.saveInfo.disabled = true;
 
   for (let worker of workers) {
     worker.terminate();
@@ -157,6 +168,7 @@ function renderFace(data, faceName, position, name) {
     face: faceName,
     rotation: Math.PI * settings.cubeRotation.value / 180,
     interpolation: settings.interpolation.value,
+	size: settings.size.value,
   };
 
   const worker = new Worker('convert.js');
@@ -171,6 +183,7 @@ function renderFace(data, faceName, position, name) {
 
     if (finished === 6) {
       dom.generating.style.visibility = 'hidden';
+	  dom.saveInfo.disabled = false;  
       finished = 0;
       workers = [];
     }
@@ -197,55 +210,73 @@ function renderFace(data, faceName, position, name) {
 }
 
 function encodeTGA(data, width, height) {
-    const HEADER_SIZE = 18;
-    const PIXEL_DATA_SIZE = width * height * 3; 
-    const buffer = new ArrayBuffer(HEADER_SIZE + PIXEL_DATA_SIZE);
-    const view = new DataView(buffer);
-    let offset = 0;
+  const HEADER_SIZE = 18;
+  const PIXEL_DATA_SIZE = width * height * 3; 
+  const buffer = new ArrayBuffer(HEADER_SIZE + PIXEL_DATA_SIZE);
+  const view = new DataView(buffer);
+  let offset = 0;
 
-    // ID length
-    view.setUint8(offset, 0);
-	offset++;
-    
-    // Color map type
-    view.setUint8(offset, 0);
-	offset++;
-    
-    // Image type
-    view.setUint8(offset, 2);
-	offset++;
-    
+  // ID length
+  view.setUint8(offset, 0);
+  offset++;
+  
+  // Color map type
+  view.setUint8(offset, 0);
+  offset++;
+  
+  // Image type
+  view.setUint8(offset, 2);
+  offset++;
+  
 	// First entry index
-    view.setUint16(offset, 0, true);
-    offset += 2;
+  view.setUint16(offset, 0, true);
+  offset += 2;
 	
 	// Color map length
-    view.setUint16(offset, 0, true);
-    offset += 2;
+  view.setUint16(offset, 0, true);
+  offset += 2;
 	
 	// Color map entry
-    view.setUint8(offset, 0);
+  view.setUint8(offset, 0);
 	offset++;
 
-    // X-origin
-    view.setUint16(offset, 0, true); 
-    offset += 2;
+  // X-origin
+  view.setUint16(offset, 0, true); 
+  offset += 2;
 	
-    // Y-origin
-    view.setUint16(offset, 0, true);
-    offset += 2;
+  // Y-origin
+  view.setUint16(offset, 0, true);
+  offset += 2;
 
-    // Width
-    view.setUint16(offset, width, true); 
-    offset += 2;
+  // Width
+  view.setUint16(offset, width, true); 
+  offset += 2;
 	
-    // Height
-    view.setUint16(offset, height, true); 
-    offset += 2;
+  // Height
+  view.setUint16(offset, height, true); 
+  offset += 2;
 
-    // Bit Depth
-    view.setUint8(offset, 24);
-	offset++; 
+  // Bit Depth
+  view.setUint8(offset, 24);
+  offset++; 
+  
+  // Image Descriptor
+  view.setUint8(offset, 0); 
+  offset++; 
+
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) {
+      const index = (y * width + x) * 4;
+
+      view.setUint8(offset, data[index + 2]);       // B
+      view.setUint8(offset + 1, data[index + 1]);   // G
+      view.setUint8(offset + 2, data[index]);       // R
+	  offset += 3; 
+    }
+  }
+  
+  return buffer;
+}
     
     // Image Descriptor
     view.setUint8(offset, 0); 

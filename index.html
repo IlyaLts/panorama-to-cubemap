@@ -58,11 +58,22 @@
         <label><input type="radio" name="format" value="jpg">JPEG</label>
         <label><input type="radio" name="format" value="tga">TGA (No RLE)</label>
       </fieldset>
+	  <fieldset>
+        <legend>Output size</legend>
+        <label><input type="radio" name="size" value="64">64</label>
+        <label><input type="radio" name="size" value="128">128</label>
+        <label><input type="radio" name="size" value="256">256</label>
+        <label><input type="radio" name="size" value="512">512</label>
+        <label><input type="radio" name="size" value="1024" checked>1024</label>
+        <label><input type="radio" name="size" value="2048">2048</label>
+        <label><input type="radio" name="size" value="4096">4096</label>
+        <label><input type="radio" name="size" value="from-panorama">1/4 width of panorama</label>
+      </fieldset>
     </section>
 
     <section>
       <h2>Output</h2>
-      <p>Click each cube face to save it to your computer.</p>
+	  <fieldset style="border: none" disabled id="save-info"><button type="button" id="save">Download All</button></fieldset>
       <div id="cubemap">
         <b id="generating" style="visibility:hidden">Generating...</b>
         <output id="faces"></output>
@@ -72,7 +83,7 @@
 
   <footer>
     <p>
-      <small>By <a href="https://github.com/jaxry">Lucas Crane</a> with private modifications by <a href="https://github.com/ilyalts">IlyaLts</a></small>
+      <small>By <a href="https://github.com/jaxry">Lucas Crane</a> with private modifications by <a href="https://github.com/ilyalts">IlyaLts</a> and <a href="https://github.com/greggman">greggman</a></small>
       <br>
       <small>Design by <a href="http://motherfuckingwebsite.com/">mf</a></small>
     </p>
