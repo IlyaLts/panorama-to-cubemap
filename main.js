@@ -52,7 +52,7 @@ class CubeFace {
   }
 
   setDownload(url, fileExtension) {
-    this.anchor.href = url;
+	this.anchor.href = url;
     this.anchor.download = `${this.name}.${fileExtension}`;
     this.img.style.filter = '';
   }
@@ -66,16 +66,25 @@ function removeChildren(node) {
 
 const mimeType = {
   'jpg': 'image/jpeg',
-  'png': 'image/png'
+  'png': 'image/png',
+  'tga': 'image/tga'
 };
 
 function getDataURL(imgData, extension) {
-  canvas.width = imgData.width;
-  canvas.height = imgData.height;
-  ctx.putImageData(imgData, 0, 0);
-  return new Promise(resolve => {
+  if (extension === 'tga') {
+    const tgaArrayBuffer = encodeTGA(imgData.data, imgData.width, imgData.height); 
+    let blob = new Blob([tgaArrayBuffer], { type: mimeType.tga });
+    return new Promise(resolve => {resolve(URL.createObjectURL(blob));});
+  }
+  else {
+    canvas.width = imgData.width;
+    canvas.height = imgData.height;
+    ctx.putImageData(imgData, 0, 0);
+	  
+    return new Promise(resolve => {
     canvas.toBlob(blob => resolve(URL.createObjectURL(blob)), mimeType[extension], 0.92);
-  });
+    });
+  }
 }
 
 const dom = {
@@ -185,4 +194,73 @@ function renderFace(data, faceName, position, name) {
   }));
 
   workers.push(worker);
+}
+
+function encodeTGA(data, width, height) {
+    const HEADER_SIZE = 18;
+    const PIXEL_DATA_SIZE = width * height * 3; 
+    const buffer = new ArrayBuffer(HEADER_SIZE + PIXEL_DATA_SIZE);
+    const view = new DataView(buffer);
+    let offset = 0;
+
+    // ID length
+    view.setUint8(offset, 0);
+	offset++;
+    
+    // Color map type
+    view.setUint8(offset, 0);
+	offset++;
+    
+    // Image type
+    view.setUint8(offset, 2);
+	offset++;
+    
+	// First entry index
+    view.setUint16(offset, 0, true);
+    offset += 2;
+	
+	// Color map length
+    view.setUint16(offset, 0, true);
+    offset += 2;
+	
+	// Color map entry
+    view.setUint8(offset, 0);
+	offset++;
+
+    // X-origin
+    view.setUint16(offset, 0, true); 
+    offset += 2;
+	
+    // Y-origin
+    view.setUint16(offset, 0, true);
+    offset += 2;
+
+    // Width
+    view.setUint16(offset, width, true); 
+    offset += 2;
+	
+    // Height
+    view.setUint16(offset, height, true); 
+    offset += 2;
+
+    // Bit Depth
+    view.setUint8(offset, 24);
+	offset++; 
+    
+    // Image Descriptor
+    view.setUint8(offset, 0); 
+	offset++; 
+
+    for (let y = height - 1; y >= 0; y--) {
+        for (let x = 0; x < width; x++) {
+            const index = (y * width + x) * 4;
+
+            view.setUint8(offset, data[index + 2]);		// B
+            view.setUint8(offset + 1, data[index + 1]); // G
+            view.setUint8(offset + 2, data[index]);     // R
+			offset += 3; 
+        }
+    }
+    
+    return buffer;
 }
