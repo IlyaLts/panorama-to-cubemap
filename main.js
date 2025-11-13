@@ -76,7 +76,7 @@ function getDataURL(imgData, extension) {
 	const origin = settings.origin.value;
 
     if (settings.compression.value === 'rle') {
-	  //tgaArrayBuffer = encodeTGA_RLE(imgData.data, imgData.width, imgData.height, origin);
+	  tgaArrayBuffer = encodeTGA_RLE(imgData.data, imgData.width, imgData.height, origin);
 	}
 	else {
 	  tgaArrayBuffer = encodeTGA(imgData.data, imgData.width, imgData.height, origin); 
@@ -282,6 +282,7 @@ function encodeTGA(data, width, height, origin) {
   view.setUint8(offset, origin === 'bottom-left' ? 0 : 0x20); 
   offset++; 
 
+  // RGB to BGR
   if (origin === 'bottom-left')
   {
     for (let y = height - 1; y >= 0; y--) {
@@ -307,6 +308,172 @@ function encodeTGA(data, width, height, origin) {
 	    offset += 3; 
       }
     }
+  }
+  
+  return buffer;
+}
+
+function encodeTGA_RLE(data, width, height, origin) {
+  const HEADER_SIZE = 18;
+  const PIXEL_BYTES = 3;
+  const bgrData = new Uint8Array(width * height * PIXEL_BYTES);
+  let bgrIndex = 0;
+  
+  // RGB to BGR
+  if (origin === 'bottom-left')
+  {
+    for (let y = height - 1; y >= 0; y--) {
+      for (let x = 0; x < width; x++) {
+        const index = (y * width + x) * 4;
+
+        bgrData[bgrIndex] = data[index + 2];      // B
+        bgrData[bgrIndex + 1] = data[index + 1];  // G
+        bgrData[bgrIndex + 2] = data[index];      // R
+        bgrIndex += 3;  
+      }
+    }
+  }
+  else
+  {
+    for (let y = 0; y < height; y++) {
+      for (let x = 0; x < width; x++) {
+        const index = (y * width + x) * 4;
+
+        bgrData[bgrIndex] = data[index + 2];      // B
+        bgrData[bgrIndex + 1] = data[index + 1];  // G
+        bgrData[bgrIndex + 2] = data[index];      // R
+	    bgrIndex += 3; 
+      }
+    }
+  }
+
+  const compressedChunks = [];
+  let compressedSize = 0;
+  let i = 0;
+  const totalPixels = width * height;
+
+  while (i < totalPixels) {
+    const p_b = bgrData[i * PIXEL_BYTES];
+    const p_g = bgrData[i * PIXEL_BYTES + 1];
+    const p_r = bgrData[i * PIXEL_BYTES + 2];
+    
+    // Finds the length of the RLE
+	let j = i + 1;
+    while (j < totalPixels) {
+      const next_b = bgrData[j * PIXEL_BYTES];
+      const next_g = bgrData[j * PIXEL_BYTES + 1];
+      const next_r = bgrData[j * PIXEL_BYTES + 2];
+      
+      if (p_b === next_b && p_g === next_g && p_r === next_r) {
+        j++;
+      } else {
+        break;
+      }
+    }
+
+    const rleLength = j - i;
+    const rleMax = 128; 
+    
+	// RLE
+    if (rleLength >= 2) {
+      let rleCurrent = Math.min(rleLength, rleMax);
+
+      compressedChunks.push((1 << 7) | (rleCurrent - 1));
+      compressedChunks.push(p_b, p_g, p_r);
+      compressedSize += 1 + PIXEL_BYTES;
+
+      i += rleCurrent;
+    }
+	// Raw
+	else {
+      let rawEnd = j;
+      
+      while (rawEnd < totalPixels && (rawEnd - i) < rleMax) {
+        if (rawEnd + 1 < totalPixels) {
+          const k_b = bgrData[rawEnd * PIXEL_BYTES];
+          const k_g = bgrData[rawEnd * PIXEL_BYTES + 1];
+          const k_r = bgrData[rawEnd * PIXEL_BYTES + 2];
+          
+          const k1_b = bgrData[(rawEnd + 1) * PIXEL_BYTES];
+          const k1_g = bgrData[(rawEnd + 1) * PIXEL_BYTES + 1];
+          const k1_r = bgrData[(rawEnd + 1) * PIXEL_BYTES + 2];
+
+          if (k_b === k1_b && k_g === k1_g && k_r === k1_r) {
+            break;
+          }
+        }
+        rawEnd++;
+      }
+      
+      const rawLength = rawEnd - i;
+	  
+      compressedChunks.push((0 << 7) | (rawLength - 1));
+      compressedSize += 1 + rawLength * PIXEL_BYTES;
+
+      for (let k = 0; k < rawLength; k++) {
+        const idx = (i + k) * PIXEL_BYTES;
+        compressedChunks.push(bgrData[idx], bgrData[idx + 1], bgrData[idx + 2]);
+      }
+
+      i += rawLength;
+    }
+  }
+
+  const buffer = new ArrayBuffer(HEADER_SIZE + compressedSize);
+  const view = new DataView(buffer);
+  let offset = 0;
+
+  // ID length
+  view.setUint8(offset, 0);
+  offset++;
+  
+  // Color map type
+  view.setUint8(offset, 0);
+  offset++;
+  
+  // Image type
+  view.setUint8(offset, 10);
+  offset++;
+  
+  // First entry index
+  view.setUint16(offset, 0, true);
+  offset += 2;
+  
+  // Color map length
+  view.setUint16(offset, 0, true);
+  offset += 2;
+  
+  // Color map entry
+  view.setUint8(offset, 0);
+  offset++;
+  
+  // X-origin
+  view.setUint16(offset, 0, true);
+  offset += 2;
+	
+  // Y-origin
+  view.setUint16(offset, 0, true);
+  offset += 2;
+	
+  // Width
+  view.setUint16(offset, width, true);
+  offset += 2;
+  
+  // Height
+  view.setUint16(offset, height, true);
+  offset += 2; 
+
+  // Bit Depth
+  view.setUint8(offset, 24);
+  offset++;
+  
+  // Image Descriptor (vh flip bits)
+  view.setUint8(offset, origin === 'bottom-left' ? 0 : 0x20);
+  offset++;
+
+  for (const byteValue of compressedChunks) {
+    view.setUint8(offset, byteValue);
+    offset++;
   }
   
   return buffer;
