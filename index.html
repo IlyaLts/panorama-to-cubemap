@@ -56,7 +56,7 @@
         <legend>Output format</legend>
         <label><input type="radio" name="format" value="png" checked>PNG</label>
         <label><input type="radio" name="format" value="jpg">JPEG</label>
-        <label><input type="radio" name="format" value="tga">TGA (No RLE)</label>
+        <label><input type="radio" name="format" value="tga">TGA</label>
       </fieldset>
 	  <fieldset>
         <legend>Output size</legend>
@@ -68,6 +68,16 @@
         <label><input type="radio" name="size" value="2048">2048</label>
         <label><input type="radio" name="size" value="4096">4096</label>
         <label><input type="radio" name="size" value="from-panorama">1/4 width of panorama</label>
+      </fieldset>
+	  <fieldset id="compression-field" hidden>
+        <legend>Compression</legend>
+        <label><input type="radio" name="compression" value="norle" checked>NO RLE</label>
+        <label><input type="radio" name="compression" value="rle">RLE</label>
+      </fieldset>
+	  <fieldset id="origin-field" hidden>
+        <legend>Origin</legend>
+        <label><input type="radio" name="origin" value="top-left" checked>Top-left</label>
+        <label><input type="radio" name="origin" value="bottom-left">Bottom-left</label>
       </fieldset>
     </section>
 

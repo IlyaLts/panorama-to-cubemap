@@ -72,7 +72,16 @@ const mimeType = {
 
 function getDataURL(imgData, extension) {
   if (extension === 'tga') {
-    const tgaArrayBuffer = encodeTGA(imgData.data, imgData.width, imgData.height); 
+    let tgaArrayBuffer;
+	const origin = settings.origin.value;
+
+    if (settings.compression.value === 'rle') {
+	  //tgaArrayBuffer = encodeTGA_RLE(imgData.data, imgData.width, imgData.height, origin);
+	}
+	else {
+	  tgaArrayBuffer = encodeTGA(imgData.data, imgData.width, imgData.height, origin); 
+	}
+	
     let blob = new Blob([tgaArrayBuffer], { type: mimeType.tga });
     return new Promise(resolve => {resolve(URL.createObjectURL(blob));});
   }
@@ -93,6 +102,8 @@ const dom = {
   generating: document.getElementById('generating'),
   save: document.getElementById('save'),
   saveInfo: document.getElementById('save-info'),
+  compressionField: document.getElementById('compression-field'),
+  originField: document.getElementById('origin-field'),
 };
 
 function saveImages() {
@@ -109,6 +120,8 @@ const settings = {
   interpolation: new RadioInput('interpolation', loadImage),
   format: new RadioInput('format', loadImage),
   size: new RadioInput('size', loadImage),
+  compression: new RadioInput('compression', loadImage),
+  origin: new RadioInput('origin', loadImage),
 };
 
 const facePositions = {
@@ -122,6 +135,9 @@ const facePositions = {
 
 function loadImage() {
   const file = dom.imageInput.files[0];
+  
+  dom.compressionField.hidden = !(settings.format.value === 'tga');
+  dom.originField.hidden = !(settings.format.value === 'tga');
 
   if (!file) {
     return;
@@ -169,13 +185,15 @@ function renderFace(data, faceName, position, name) {
     rotation: Math.PI * settings.cubeRotation.value / 180,
     interpolation: settings.interpolation.value,
 	size: settings.size.value,
+	compression: settings.compression.value,
+	origin: settings.origin.value,
   };
 
   const worker = new Worker('convert.js');
 
   const setDownload = ({data: imageData}) => {
     const extension = settings.format.value;
-
+	
     getDataURL(imageData, extension)
       .then(url => face.setDownload(url, extension));
 
@@ -209,7 +227,7 @@ function renderFace(data, faceName, position, name) {
   workers.push(worker);
 }
 
-function encodeTGA(data, width, height) {
+function encodeTGA(data, width, height, origin) {
   const HEADER_SIZE = 18;
   const PIXEL_DATA_SIZE = width * height * 3; 
   const buffer = new ArrayBuffer(HEADER_SIZE + PIXEL_DATA_SIZE);
@@ -228,15 +246,15 @@ function encodeTGA(data, width, height) {
   view.setUint8(offset, 2);
   offset++;
   
-	// First entry index
+  // First entry index
   view.setUint16(offset, 0, true);
   offset += 2;
 	
-	// Color map length
+  // Color map length
   view.setUint16(offset, 0, true);
   offset += 2;
 	
-	// Color map entry
+  // Color map entry
   view.setUint8(offset, 0);
 	offset++;
 
@@ -261,37 +279,35 @@ function encodeTGA(data, width, height) {
   offset++; 
   
   // Image Descriptor (vh flip bits)
-  view.setUint8(offset, 0b00100000); 
+  view.setUint8(offset, origin === 'bottom-left' ? 0 : 0x20); 
   offset++; 
 
-  for (let y = 0; y < height; y++) {
-    for (let x = 0; x < width; x++) {
-      const index = (y * width + x) * 4;
+  if (origin === 'bottom-left')
+  {
+    for (let y = height - 1; y >= 0; y--) {
+      for (let x = 0; x < width; x++) {
+        const index = (y * width + x) * 4; 
 
-      view.setUint8(offset, data[index + 2]);       // B
-      view.setUint8(offset + 1, data[index + 1]);   // G
-      view.setUint8(offset + 2, data[index]);       // R
-	  offset += 3; 
+        view.setUint8(offset, data[index + 2]);      // B
+        view.setUint8(offset + 1, data[index + 1]);  // G
+        view.setUint8(offset + 2, data[index]);      // R
+        offset += 3;  
+      }
+    }
+  }
+  else
+  {
+    for (let y = 0; y < height; y++) {
+      for (let x = 0; x < width; x++) {
+        const index = (y * width + x) * 4;
+
+        view.setUint8(offset, data[index + 2]);       // B
+        view.setUint8(offset + 1, data[index + 1]);   // G
+        view.setUint8(offset + 2, data[index]);       // R
+	    offset += 3; 
+      }
     }
   }
   
   return buffer;
-}
-    
-    // Image Descriptor
-    view.setUint8(offset, 0); 
-	offset++; 
-
-    for (let y = height - 1; y >= 0; y--) {
-        for (let x = 0; x < width; x++) {
-            const index = (y * width + x) * 4;
-
-            view.setUint8(offset, data[index + 2]);		// B
-            view.setUint8(offset + 1, data[index + 1]); // G
-            view.setUint8(offset + 2, data[index]);     // R
-			offset += 3; 
-        }
-    }
-    
-    return buffer;
 }
